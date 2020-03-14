@@ -1,16 +1,17 @@
 
 
 public class Operation {
-
+    
     public OperationType operationType;
     public int value;
     public int index;
-    public int returnValue = 0;
+    public int returnValue;
 
     public Operation(OperationType opType, int value, int index) {
         this.operationType = opType;
         this.value = value;
         this.index = index;
+        this.returnValue = 0;
     }
 
 
