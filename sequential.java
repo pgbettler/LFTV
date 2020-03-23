@@ -5,11 +5,6 @@
  */
 
 import java.util.*; 
-// import java.util.concurrent.atomic.AtomicInteger;
-// import java.util.concurrent.atomic.AtomicMarkableReference;
-// import java.util.concurrent.atomic.AtomicReference;
-// import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicReference;
 
 
 public class sequential {
@@ -123,7 +118,7 @@ public class sequential {
             OperationType opType = opTypeValues[opIndex];
 
             // get random value to write or push
-            if(opType == OperationType.pushBack)
+            if(opType == OperationType.popBack)
                 value = Integer.MAX_VALUE;
                 
             else
@@ -140,6 +135,7 @@ public class sequential {
         }
         
         Transaction t = new Transaction(operations);
+        t.size = 5;
 
         return t;
     }
