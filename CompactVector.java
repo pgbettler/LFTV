@@ -20,13 +20,13 @@ public class CompactVector {
     		return -1;
     	}
     	// check transaction status
-    	if(this.array[index].transaction.txnStatus.get().equals(TxnStatus.active)) 
+    	if(this.array[index].desc.status.get().equals(TxnStatus.active)) 
     	{
     		// helping must occur for this transaction, so abort?
     		// reference page 6 section 6 paragraph 2 
     		return -1;
     	}
-    	if(this.array[index].transaction.txnStatus.get().equals(TxnStatus.committed)) 
+    	if(this.array[index].desc.status.get().equals(TxnStatus.committed)) 
     	{
     		//committed is the only status to return new value
     		return this.array[index].newValue;
@@ -63,13 +63,13 @@ public class CompactVector {
     	int oldVal = this.array[len].oldValue;
     	int newVal = this.array[len].newValue;
     	// check transaction status
-    	if(this.array[len].transaction.txnStatus.get().equals(TxnStatus.active)) 
+    	if(this.array[len].desc.status.get().equals(TxnStatus.active)) 
     	{
     		// helping must occur for this transaction, so abort?
     		// reference page 6 section 6 paragraph 2 
     		return -1;
     	}
-    	if(this.array[len].transaction.txnStatus.get().equals(TxnStatus.committed)) 
+    	if(this.array[len].desc.status.get().equals(TxnStatus.committed)) 
     	{
     		//remove last value in array
     		this.array =  Arrays.copyOf(this.array, this.array.length-1);
