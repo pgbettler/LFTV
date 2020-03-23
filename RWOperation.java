@@ -13,4 +13,9 @@ public class RWOperation {
         readList = new ArrayList<Operation>();
     }
 
+    @Override
+    public String toString() {
+
+        return " bounds " + checkBounds + lastWriteOp + readList.size();
+    }
 }

@@ -18,26 +18,16 @@ public class sequential {
     public static Random random = new Random();
 
     public static void main(String[] args) {
+                
+        Populate();
 
-        // Fill vector with values
         for(int i = 0; i < v.array.length; i++) {
-            CompactElement e = new CompactElement();
-            e.oldValue = random.nextInt(100);
-            e.newValue = random.nextInt(100);
-
-            RWOperation rwop = new RWOperation();
-            rwop.checkBounds = false;
-            rwop.lastWriteOp = new Operation(OperationType.write,random.nextInt(100), i);
-            e.desc = new Transaction(TxnStatus.aborted);
-            v.array[i] = e;
             System.out.println(v.array[i]);
         }
 
-  
-
         int txnCount = 0;
 
-        while(txnCount < 3) {
+        while(txnCount < 1) {
 
             // Create Transaction
             Transaction t = BuildTransaction();
@@ -49,7 +39,7 @@ public class sequential {
 
 
             // Perform Transaction
-            Boolean result = CompleteTransaction(t);
+            Boolean result = CompleteTransaction(t, false);
 
             if(result)
                 System.out.println("Completed\n" + t);
@@ -66,7 +56,7 @@ public class sequential {
 
     private static void Preprocess(Transaction t) {
 
-        RWOperation rwop;
+        RWOperation rwop = null;
         int largestReserve = 0;
 
 
@@ -97,12 +87,71 @@ public class sequential {
                     largestReserve = op.index;
             }
 
-            t.set.put(op.index, rwop);
+           //if(rwop.readList.size() != 0 && rwop.lastWriteOp != null)
+                t.set.put(op.index, rwop);
         }
+        
+        Set<Integer> keys = t.set.keySet();
+
+        // System.out.println("\n\nTHE SET  " + keys.size() );
+        // for(Integer k : keys) {
+        //     System.out.print("Index " + k + " has ");
+        //     System.out.println(t.set.get(k));
+        // }
 
         // do something with the largestReserve value
 
     }
+
+
+    private static void Populate() {
+
+        int layer = 0;
+        
+
+        while(layer < 1) {
+
+            Operation[] operations = new Operation[5];
+
+            for(int i = 0; i < 5; i++) {
+
+                int value =  random.nextInt(100);
+
+                Operation operation = new Operation(OperationType.write, value, i);
+                operations[i] = operation;
+            }
+            Transaction t = new Transaction(operations);
+
+            // System.out.println("pushing ");
+            // System.out.println(t);
+
+           // t.status.set(TxnStatus.committed)
+            Preprocess(t);
+            CompleteTransaction(t, true);
+
+            for(int i = 5; i < 10; i++) {
+
+                int value =  random.nextInt(100);
+
+                Operation operation = new Operation(OperationType.write, value, i);
+                operations[i-5] = operation;
+            }
+            
+
+            Transaction d = new Transaction(operations);
+            // System.out.println("pushing ");
+            // System.out.println(d);
+
+            Preprocess(d);
+            CompleteTransaction(d, true);
+            
+            layer++;
+        }
+
+
+    } 
+
+ 
 
 
     private static Transaction BuildTransaction() {
@@ -141,7 +190,7 @@ public class sequential {
     }
 
 
-    private static Boolean CompleteTransaction(Transaction desc) {
+    private static Boolean CompleteTransaction(Transaction desc, boolean prepopulating) {
 
         boolean ret = true;
 
@@ -159,7 +208,7 @@ public class sequential {
 
                 RWOperation rwop = desc.set.get(index);
 
-                Boolean result = UpdateElement(desc, index, rwop);
+                Boolean result = UpdateElement(desc, index, rwop, prepopulating);
 
                 if(!result) {
                     // do something
@@ -170,12 +219,20 @@ public class sequential {
 
                
             }
+
+            desc.status.set(TxnStatus.committed);
             return true;
         
     }
 
-    private static Boolean UpdateElement(Transaction desc, int index, RWOperation rwop) {
+    private static Boolean UpdateElement(Transaction desc, int index, RWOperation rwop, boolean prepopulating) {
         
+        Set<Integer> keys = desc.set.keySet();
+
+       // System.out.println("\n\nRWOp");
+      //  System.out.println(rwop);
+
+
         // should check if the index is greater than vector's capacity, will check array length for now
         if(index > v.array.length) {
             desc.status.set(TxnStatus.aborted);
@@ -185,28 +242,38 @@ public class sequential {
         CompactElement newElem = new CompactElement();
         CompactElement oldElem = v.array[index];
 
+        if(prepopulating) {
+             // should probably get rid of these atomics for the sequential version
+            if(oldElem.desc.status.get() == TxnStatus.committed && oldElem.desc.set != null && oldElem.desc.set.get(index).lastWriteOp != null) {
+
+                newElem.oldValue = oldElem.newValue;
+            }
+            else newElem.oldValue = oldElem.oldValue;
+        }
         
 
         // should probably get rid of these atomics for the sequential version
-        if(oldElem.desc.status.get() == TxnStatus.committed) {
+        if(oldElem.desc.status.get() == TxnStatus.committed && oldElem.desc.set != null && rwop.lastWriteOp != null ) {
 
-            Operation oldElemLastWrite = oldElem.desc.set.get(index).lastWriteOp;
-            if( oldElemLastWrite != null) 
                 newElem.oldValue = oldElem.newValue;
         }
         else newElem.oldValue = oldElem.oldValue;
 
         if(rwop == null)
             System.out.println("it don't");
+
         // accessing out of bounds
         if(rwop.checkBounds && newElem.oldValue == UNSET) {
             desc.status.set(TxnStatus.aborted);
+            System.out.println("yeah you guessed it");
             return false;
         }
 
         // perform the write operation or maybe not
-        if(rwop.lastWriteOp != null)
+        if(rwop.lastWriteOp != null) {
             newElem.newValue = rwop.lastWriteOp.value;
+        }
+        
 
         newElem.desc = desc;
 

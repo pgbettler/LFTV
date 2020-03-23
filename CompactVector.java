@@ -7,6 +7,15 @@ public class CompactVector {
     public CompactVector() {
 
         this.array = new CompactElement[10];
+
+        for(int i = 0; i < this.array.length; i++) {
+
+            CompactElement elem = new CompactElement();
+            elem.oldValue = Integer.MAX_VALUE;
+            elem.newValue = -1;
+            elem.desc = new Transaction(TxnStatus.committed);
+            this.array[i] = elem;
+        }
     }
 
 

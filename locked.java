@@ -16,7 +16,7 @@ public class locked {
     public static final int UNSET = Integer.MAX_VALUE;
     public static OperationType[] opTypeVals = OperationType.values();
     
-    public static AtomicReferenceArray<CompactElement> v = new AtomicReferenceArray<>(new CompactElement[10]);
+    public static AtomicCompactVector v = new AtomicCompactVector();
 
     public static MRLOCK lockManager = new MRLOCK(100);
 
@@ -164,7 +164,7 @@ class Perform implements Runnable {
             OperationType opType = opTypeValues[opIndex];
 
             // get random value to write or push
-            if(opType == OperationType.pushBack)
+            if(opType == OperationType.popBack)
                 value = Integer.MAX_VALUE;
                 
             else
@@ -193,7 +193,7 @@ class Perform implements Runnable {
 
     }
 
-    
+
     private static void ExecuteOps(Transaction desc) {
        
         BitSet request = new BitSet();
@@ -218,8 +218,5 @@ class Perform implements Runnable {
         System.out.println("\nThread " +Thread.currentThread().getName() + " has completed\n" + desc);
 
         lockManager.unlock(position);
-
-
-
     }
 }
