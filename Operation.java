@@ -29,6 +29,10 @@ public class Operation {
         if (operationType == OperationType.write || operationType == OperationType.read)
            str += " at index " + Integer.toString(index);
 
+        if(operationType == OperationType.reserve)
+            str += " to capacity " + Integer.toString(index);
+
+
         str += "\n";
 
         return str;
