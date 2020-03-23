@@ -16,6 +16,6 @@ public class RWOperation {
     @Override
     public String toString() {
 
-        return " bounds " + checkBounds + lastWriteOp + readList.size();
+        return  readList.size() + " bounds " + checkBounds + lastWriteOp;
     }
 }

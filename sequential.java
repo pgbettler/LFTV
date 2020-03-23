@@ -27,7 +27,7 @@ public class sequential {
 
         int txnCount = 0;
 
-        while(txnCount < 1) {
+        while(txnCount < 2) {
 
             // Create Transaction
             Transaction t = BuildTransaction();
@@ -37,9 +37,11 @@ public class sequential {
             // Preprocess transaction - turn into RWSet
             Preprocess(t);
 
+            
+
 
             // Perform Transaction
-            Boolean result = CompleteTransaction(t, false);
+            Boolean result = CompleteTransaction(t);
 
             if(result)
                 System.out.println("Completed\n" + t);
@@ -54,7 +56,7 @@ public class sequential {
         }
     }
 
-    private static void Preprocess(Transaction t) {
+    private static int Preprocess(Transaction t) {
 
         RWOperation rwop = null;
         int largestReserve = 0;
@@ -100,6 +102,10 @@ public class sequential {
         // }
 
         // do something with the largestReserve value
+        if(largestReserve > 0 && largestReserve > v.array.length)
+                v.Reserve(largestReserve);
+
+        return largestReserve;
 
     }
 
@@ -127,7 +133,7 @@ public class sequential {
 
            // t.status.set(TxnStatus.committed)
             Preprocess(t);
-            CompleteTransaction(t, true);
+            CompleteTransaction(t);
 
             for(int i = 5; i < 10; i++) {
 
@@ -143,7 +149,7 @@ public class sequential {
             // System.out.println(d);
 
             Preprocess(d);
-            CompleteTransaction(d, true);
+            CompleteTransaction(d);
             
             layer++;
         }
@@ -190,11 +196,9 @@ public class sequential {
     }
 
 
-    private static Boolean CompleteTransaction(Transaction desc, boolean prepopulating) {
+    private static Boolean CompleteTransaction(Transaction desc) {
 
         boolean ret = true;
-
-      
 
             // reserve first 
 
@@ -208,7 +212,7 @@ public class sequential {
 
                 RWOperation rwop = desc.set.get(index);
 
-                Boolean result = UpdateElement(desc, index, rwop, prepopulating);
+                Boolean result = UpdateElement(desc, index, rwop);
 
                 if(!result) {
                     // do something
@@ -216,8 +220,6 @@ public class sequential {
                     System.out.println("update element failed\n");
                     return false;
                 }
-
-               
             }
 
             desc.status.set(TxnStatus.committed);
@@ -225,14 +227,9 @@ public class sequential {
         
     }
 
-    private static Boolean UpdateElement(Transaction desc, int index, RWOperation rwop, boolean prepopulating) {
-        
-        Set<Integer> keys = desc.set.keySet();
+    private static Boolean UpdateElement(Transaction desc, int index, RWOperation rwop) {
 
-       // System.out.println("\n\nRWOp");
-      //  System.out.println(rwop);
-
-
+        System.out.println(rwop);
         // should check if the index is greater than vector's capacity, will check array length for now
         if(index > v.array.length) {
             desc.status.set(TxnStatus.aborted);
@@ -242,20 +239,16 @@ public class sequential {
         CompactElement newElem = new CompactElement();
         CompactElement oldElem = v.array[index];
 
-        if(prepopulating) {
-             // should probably get rid of these atomics for the sequential version
-            if(oldElem.desc.status.get() == TxnStatus.committed && oldElem.desc.set != null && oldElem.desc.set.get(index).lastWriteOp != null) {
-
-                newElem.oldValue = oldElem.newValue;
-            }
-            else newElem.oldValue = oldElem.oldValue;
-        }
-        
 
         // should probably get rid of these atomics for the sequential version
-        if(oldElem.desc.status.get() == TxnStatus.committed && oldElem.desc.set != null && rwop.lastWriteOp != null ) {
+        if(oldElem.desc.status.get() == TxnStatus.committed && oldElem.desc.set != null) {
 
+            Operation oldElemLastWrite = oldElem.desc.set.get(index).lastWriteOp;
+            if( oldElemLastWrite != null) {
+                System.out.println("old write exists");
                 newElem.oldValue = oldElem.newValue;
+            }
+                
         }
         else newElem.oldValue = oldElem.oldValue;
 
@@ -274,7 +267,7 @@ public class sequential {
             newElem.newValue = rwop.lastWriteOp.value;
         }
         
-
+        
         newElem.desc = desc;
 
         v.array[index] = newElem;

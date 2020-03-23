@@ -99,10 +99,21 @@ public class CompactVector {
 
     // reserve new space in the array
     public void Reserve(int index) {
-    	
+        
+        int oldLength = this.array.length;
+
     	//increase array size up to index
     	//"used in reserve calls to indicate desired capacity" so +1 or nah?
-    	this.array =  Arrays.copyOf(this.array, index);
+        this.array =  Arrays.copyOf(this.array, index);
+        
+        for(int i = oldLength; i < this.array.length; i++) {
+
+            CompactElement elem = new CompactElement();
+            elem.oldValue = Integer.MAX_VALUE;
+            elem.newValue = -1;
+            elem.desc = new Transaction(TxnStatus.committed);
+            this.array[i] = elem;
+        }
     	
     	
     }
