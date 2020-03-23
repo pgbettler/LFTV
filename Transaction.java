@@ -17,6 +17,10 @@ public class Transaction {
         this.set = new ConcurrentHashMap<>();
     }
 
+    public Transaction(TxnStatus status) {
+        this.status = new AtomicReference<TxnStatus>(TxnStatus.active);
+    }
+
     @Override
     public String toString() {
 
