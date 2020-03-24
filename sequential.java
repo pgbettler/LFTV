@@ -59,7 +59,7 @@ public class sequential {
 
         RWOperation rwop = null;
         int largestReserve = 0;
-
+        int possibleSize = v.size;
 
         for (int i = 0; i < t.operations.length; i++) {   
             Operation op = t.operations[i];
@@ -69,7 +69,6 @@ public class sequential {
             
             else    
                 rwop = new RWOperation();
-
 
             if(op.operationType == OperationType.read) {
                 rwop.checkBounds = true;
@@ -83,14 +82,38 @@ public class sequential {
                 t.set.put(op.index, rwop);
             }
 
-            // same for pushback and popback - keep track of furthest index accessed by pushback
+            else if (op.operationType == OperationType.size) {
+                op.index = possibleSize;
+            }
 
-            // do something with size calls
+            else if (op.operationType == OperationType.popBack) {
+                possibleSize--;
+                if(t.set.containsKey(possibleSize)) 
+                    rwop = t.set.get(possibleSize);
+                else    
+                    rwop = new RWOperation();
+                op.index = possibleSize;
+                rwop.checkBounds = false;
+                rwop.readList.add(op);
+                rwop.lastWriteOp = op;
+                t.set.put(op.index, rwop);
+            }
+
+            else if (op.operationType == OperationType.pushBack) {
+                if(t.set.containsKey(possibleSize)) 
+                    rwop = t.set.get(possibleSize);
+                 else    
+                    rwop = new RWOperation();
+                rwop.checkBounds = false;
+                rwop.lastWriteOp = op;
+                t.set.put(possibleSize, rwop);
+                possibleSize++;
+                largestReserve = Math.max(largestReserve, possibleSize);
+            }
 
 
             // Keep track of largest reserve call
             if(op.operationType == OperationType.reserve) {
-               
                 if(op.index > largestReserve)
                     largestReserve = op.index;
             }
