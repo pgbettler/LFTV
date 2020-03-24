@@ -27,28 +27,27 @@ public class sequential {
 
         int txnCount = 0;
 
-        while(txnCount < 2) {
+        while(txnCount < 10) {
 
             // Create Transaction
             Transaction t = BuildTransaction();
-            System.out.println(t);
-
 
             // Preprocess transaction - turn into RWSet
             Preprocess(t);
-
-            
-
 
             // Perform Transaction
             Boolean result = CompleteTransaction(t);
 
             if(result)
                 System.out.println("Completed\n" + t);
+            else
+                System.out.println("Aborted\n" + t);
 
 
             txnCount++;
         }
+
+        System.out.println();
 
 
         for(int i = 0; i < v.array.length; i++) {
@@ -62,25 +61,32 @@ public class sequential {
         int largestReserve = 0;
 
 
-        for (Operation op : t.operations) {   
+        for (int i = 0; i < t.operations.length; i++) {   
+            Operation op = t.operations[i];
 
-            if(t.set.containsKey(op.index))
+            if(t.set.containsKey(op.index)) 
                 rwop = t.set.get(op.index);
             
             else    
                 rwop = new RWOperation();
 
+
             if(op.operationType == OperationType.read) {
+                rwop.checkBounds = true;
                 rwop.readList.add(op);
+                t.set.put(op.index, rwop);
             }
 
             else if (op.operationType == OperationType.write) {
+                rwop.checkBounds = true;
                 rwop.lastWriteOp = op;
+                t.set.put(op.index, rwop);
             }
 
             // same for pushback and popback - keep track of furthest index accessed by pushback
 
-            // do something with size calls and t.size
+            // do something with size calls
+
 
             // Keep track of largest reserve call
             if(op.operationType == OperationType.reserve) {
@@ -88,18 +94,7 @@ public class sequential {
                 if(op.index > largestReserve)
                     largestReserve = op.index;
             }
-
-           //if(rwop.readList.size() != 0 && rwop.lastWriteOp != null)
-                t.set.put(op.index, rwop);
         }
-        
-        Set<Integer> keys = t.set.keySet();
-
-        // System.out.println("\n\nTHE SET  " + keys.size() );
-        // for(Integer k : keys) {
-        //     System.out.print("Index " + k + " has ");
-        //     System.out.println(t.set.get(k));
-        // }
 
         // do something with the largestReserve value
         if(largestReserve > 0 && largestReserve > v.array.length)
@@ -110,55 +105,18 @@ public class sequential {
     }
 
 
+    // Populates the vector by using pushback 
     private static void Populate() {
 
-        int layer = 0;
-        
+        int count = 0;
 
-        while(layer < 1) {
-
-            Operation[] operations = new Operation[5];
-
-            for(int i = 0; i < 5; i++) {
-
-                int value =  random.nextInt(100);
-
-                Operation operation = new Operation(OperationType.write, value, i);
-                operations[i] = operation;
-            }
-            Transaction t = new Transaction(operations);
-
-            // System.out.println("pushing ");
-            // System.out.println(t);
-
-           // t.status.set(TxnStatus.committed)
-            Preprocess(t);
-            CompleteTransaction(t);
-
-            for(int i = 5; i < 10; i++) {
-
-                int value =  random.nextInt(100);
-
-                Operation operation = new Operation(OperationType.write, value, i);
-                operations[i-5] = operation;
-            }
-            
-
-            Transaction d = new Transaction(operations);
-            // System.out.println("pushing ");
-            // System.out.println(d);
-
-            Preprocess(d);
-            CompleteTransaction(d);
-            
-            layer++;
+        // pushback values into vector
+        while(count < 9) {
+            v.Populate(random.nextInt(100));
+            count++;
         }
-
-
     } 
-
  
-
 
     private static Transaction BuildTransaction() {
         
@@ -204,7 +162,19 @@ public class sequential {
 
             Set<Integer> indexes = desc.set.keySet();
 
-            Iterator<Integer> it = indexes.iterator();        
+            List<Integer> list = new ArrayList<>();
+            for(Integer x : indexes) {
+                list.add(x);
+            }
+            
+            Collections.sort(list);
+
+            // must perform read and writes from high to lo index 
+            Collections.reverse(list);
+
+           System.out.println("the set has " + list.size());
+            
+            Iterator<Integer> it = list.iterator();        
 
             while(it.hasNext()) {
 
@@ -214,9 +184,8 @@ public class sequential {
 
                 Boolean result = UpdateElement(desc, index, rwop);
 
-                if(!result) {
-                    // do something
 
+                if(!result) {
                     System.out.println("update element failed\n");
                     return false;
                 }
@@ -224,13 +193,12 @@ public class sequential {
 
             desc.status.set(TxnStatus.committed);
             return true;
-        
     }
 
     private static Boolean UpdateElement(Transaction desc, int index, RWOperation rwop) {
 
-        System.out.println(rwop);
-        // should check if the index is greater than vector's capacity, will check array length for now
+
+        // out of bounds access
         if(index > v.array.length) {
             desc.status.set(TxnStatus.aborted);
             return false;
@@ -243,17 +211,17 @@ public class sequential {
         // should probably get rid of these atomics for the sequential version
         if(oldElem.desc.status.get() == TxnStatus.committed && oldElem.desc.set != null) {
 
-            Operation oldElemLastWrite = oldElem.desc.set.get(index).lastWriteOp;
-            if( oldElemLastWrite != null) {
-                System.out.println("old write exists");
-                newElem.oldValue = oldElem.newValue;
+            if(oldElem.desc.set.containsKey(index)) {
+                Operation oldElemLastWrite = oldElem.desc.set.get(index).lastWriteOp;
+                if( oldElemLastWrite != null) {
+                    newElem.oldValue = oldElem.newValue;
+                }
+                else newElem.oldValue = oldElem.oldValue;
             }
                 
         }
         else newElem.oldValue = oldElem.oldValue;
 
-        if(rwop == null)
-            System.out.println("it don't");
 
         // accessing out of bounds
         if(rwop.checkBounds && newElem.oldValue == UNSET) {
