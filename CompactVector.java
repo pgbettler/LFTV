@@ -3,13 +3,14 @@ import java.util.Arrays;
 public class CompactVector {
 
     public CompactElement[] array;
+    public int size;
 
     public CompactVector() {
 
         this.array = new CompactElement[10];
 
         for(int i = 0; i < this.array.length; i++) {
-
+            size = 0;
             CompactElement elem = new CompactElement();
             elem.oldValue = Integer.MAX_VALUE;
             elem.newValue = -1;
@@ -66,6 +67,31 @@ public class CompactVector {
     	
     }
 
+
+    public void Populate(int val) {
+
+        if(size >= this.array.length)
+            Reserve(size*2);
+
+        CompactElement elem = new CompactElement();
+        elem.oldValue = Integer.MAX_VALUE;
+        elem.newValue = val;
+
+        elem.desc = new Transaction(TxnStatus.committed);
+        
+        RWOperation rwop = new RWOperation();
+        rwop.checkBounds = false;
+
+        Operation op = new Operation(OperationType.pushBack, val, size);
+        rwop.lastWriteOp = op;
+
+        elem.desc = new Transaction(TxnStatus.committed);
+ 
+        elem.desc.set.put(size, rwop);
+
+        this.array[size] = elem;  
+        size++;       
+    }
 
     public int PopBack() {
     	int len = array.length-1;

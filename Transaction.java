@@ -17,8 +17,10 @@ public class Transaction {
         this.set = new ConcurrentHashMap<>();
     }
 
+    // this constructor is for populating
     public Transaction(TxnStatus status) {
-        this.status = new AtomicReference<TxnStatus>(TxnStatus.active);
+        this.status = new AtomicReference<TxnStatus>(TxnStatus.committed);
+        this.set = new ConcurrentHashMap<>();
     }
 
     @Override
