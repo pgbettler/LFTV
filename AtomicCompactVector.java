@@ -10,6 +10,8 @@ public class AtomicCompactVector {
 
 
     public void Size() {
+
+        array.length();
     	
     	//return this.array.length;
 

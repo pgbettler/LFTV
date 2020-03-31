@@ -7,12 +7,12 @@ public class Transaction {
     public int size;
     public Operation[] operations;
     public AtomicReference<TxnStatus> status;
-    // This map is atomic but uses locks in its implementation so we might need to look for alternatives
     public ConcurrentMap<Integer,RWOperation> set = null;
 
     public Transaction (Operation[] operations) {
-        this.size = 5;
         this.operations = operations;
+        if (operations == null) size = 0;
+        else this.size = operations.length;
         this.status = new AtomicReference<TxnStatus>(TxnStatus.active);
         this.set = new ConcurrentHashMap<>();
     }
