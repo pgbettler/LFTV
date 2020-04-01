@@ -4,7 +4,8 @@
  * 3/11/2020
  */
 
-import java.util.*; 
+import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
@@ -12,11 +13,10 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 public class locked {
 
     public static int totalOpTypes = 6;
-    public static Random random = new Random();
     public static final int UNSET = Integer.MAX_VALUE;
     public static OperationType[] opTypeVals = OperationType.values();
     
-    public static AtomicCompactVector v = new AtomicCompactVector();
+    public static CompactLFTV v = new CompactLFTV();
 
     public static MRLOCK lockManager = new MRLOCK(100);
 
@@ -24,7 +24,8 @@ public class locked {
     public static void main(String[] args) {
 
         // Prepopulate compact vector
-        
+        for(int i = 0; i <  8; i++)
+            v.Populate();
 
         // Maybe build all transactions beforehand and place in queue
 
@@ -34,7 +35,8 @@ public class locked {
 
         for(int i = 0; i < threads.length; i++)
         {
-            Thread t = new Thread(new Perform(lockManager, random, opTypeVals));
+            Transaction[] transactions = BuildTransactions();
+            Thread t = new Thread(new Perform(lockManager, v, transactions));
             t.setName(String.valueOf(i+1));
             threads[i] = t;
         }
@@ -64,6 +66,81 @@ public class locked {
         
     }
 
+
+    // Creates an array of transactions for a thread to pull from
+    public static Transaction[] BuildTransactions() {
+
+        Transaction[] transactions = new Transaction[1];        // ******** CHANGE THIS NUMBER LATER *********
+
+        // Build each transaction and insert it into transactions array
+        for(int x = 0; x < transactions.length; x++) {
+
+            int value;
+            int operationCount = 0;
+            Operation[] operations = new Operation[5];
+    
+            // Insert 5 random operations per transaction
+            while(operationCount < 5) {
+
+                // get random operation type
+                double ratio = ThreadLocalRandom.current().nextDouble(0.0, 1.0);
+                OperationType opType = GetOperationType(ratio);
+    
+                // Popback's value field should always be max integer
+                if(opType == OperationType.popBack)
+                    value = Integer.MAX_VALUE;
+                    
+                // get random value to write or push
+                else
+                    value = ThreadLocalRandom.current().nextInt(100);
+    
+                // choose random index to perform operation on in vector
+                int vectorIndex = ThreadLocalRandom.current().nextInt(50);         // ******** CHANGE THE BOUND *********
+    
+                Operation operation = new Operation(opType, value, vectorIndex);
+                operations[operationCount] = operation;
+    
+                operationCount++;
+            }
+
+            Transaction t = new Transaction(operations);
+
+            transactions[x] = t;
+        }
+
+        return transactions;
+    }
+
+
+
+    // Returns an operation based off the ratio
+    public static OperationType GetOperationType(double ratio) {
+
+        // Read operation - 20%                                         // ******** VARY THE RATIOS *********
+        if(ratio < 0.5)
+            return opTypeVals[0];
+    
+        // Write operation - 20%
+        else if (ratio >= 0.5 && ratio < 1.0)
+            return opTypeVals[1];
+        
+        // Pushback - 20%
+        else if (ratio >= 0.4 && ratio < 0.6)
+            return opTypeVals[2];
+
+        // Popback - 20%
+        else if (ratio >= 0.6 && ratio < 0.8)
+            return opTypeVals[3];
+
+        // Size - 10%
+        else if (ratio >= 0.8 && ratio < 0.9)
+            return opTypeVals[4];
+
+        // Reserve - 10%
+        else
+            return opTypeVals[5];
+    }
+
 }
 
 
@@ -71,130 +148,117 @@ public class locked {
 
 class Perform implements Runnable {
 
-    public static Random r;
-    public int totalOpTypes = 6;
-    public final int UNSET = Integer.MAX_VALUE;
-    public static  OperationType[] opTypeValues;
-    public static MRLOCK lockManager;
+
+    public MRLOCK lockManager;
+    public CompactLFTV v;
+    Transaction[] transactions;
 
 
-    public Perform (MRLOCK manager, Random random, OperationType[] values) {
-        r = random;
-        opTypeValues = values;
+
+    public Perform (MRLOCK manager, CompactLFTV vector, Transaction[] t) {
         lockManager = manager;
+        v = vector;
+        transactions = t;
     }
 
-    public void run()
+    public void run() 
     {
-        
-        int txnCount = 0;
+        for(int i = 0; i < transactions.length; i++) {
 
-        while(txnCount < 1 /* change to true*/) {
-
-            // Create Transaction
-            Transaction t = BuildTransaction();
-            System.out.println(t);
-
-            // Preprocess transaction - turn into RWSet
+            Transaction t = transactions[i];
             Preprocess(t);
-            
-            // Perform Transaction
             CompleteTransaction(t);
 
-            txnCount++;
+           // System.out.println("Thread " + Thread.currentThread().getName() + "\n" + t);
+
+           // v.PrintVector();
         }
     }
 
     public static void Preprocess(Transaction t) {
 
-        RWOperation rwop;
+        RWOperation rwop = null;
         int largestReserve = 0;
+       // int possibleSize = v.size.get();
 
+        for (int i = 0; i < t.operations.length; i++) {   
+            Operation op = t.operations[i];
 
-        for (Operation op : t.operations) {   
-
-            if(t.set.containsKey(op.index))
+            if(t.set.containsKey(op.index)) 
                 rwop = t.set.get(op.index);
-            
             else    
                 rwop = new RWOperation();
 
-
             if(op.operationType == OperationType.read) {
-                rwop.readList.add(op);
+                
+                // Add read to the list so we can store the elements oldval in its return in updateElement
+                if(rwop.lastWriteOp == null){
+                //   /  rwop.checkBounds = true;
+                //     rwop.readList.add(op);
+                //     t.set.put(op.index, rwop);
+                }
+                else {
+                    op.returnValue = rwop.lastWriteOp.value;
+                }
             }
 
             else if (op.operationType == OperationType.write) {
+                rwop.checkBounds = true;
                 rwop.lastWriteOp = op;
+                t.set.put(op.index, rwop);
             }
 
-            // same for pushback and popback - keep track of furthest index accessed by pushback
+            else if (op.operationType == OperationType.size) {
+       //         op.returnValue = possibleSize;
+            }
 
+            else {
 
-            // do something with size calls and t.size
+            }
+/*
+            else if (op.operationType == OperationType.popBack) {
+                possibleSize--;
+                if(t.set.containsKey(possibleSize)) 
+                    rwop = t.set.get(possibleSize);
+                else    
+                    rwop = new RWOperation();
+                op.index = possibleSize;
+                rwop.checkBounds = false;
+                rwop.readList.add(op);
+                rwop.lastWriteOp = op;
+                t.set.put(op.index, rwop);
+            }
+
+            else if (op.operationType == OperationType.pushBack) {
+                if(t.set.containsKey(possibleSize)) 
+                    rwop = t.set.get(possibleSize);
+                 else    
+                    rwop = new RWOperation();
+                rwop.checkBounds = false;
+                rwop.lastWriteOp = op;
+                t.set.put(possibleSize, rwop);
+                possibleSize++;
+                largestReserve = Math.max(largestReserve, possibleSize);
+            }
 
 
             // Keep track of largest reserve call
             if(op.operationType == OperationType.reserve) {
-               
                 if(op.index > largestReserve)
                     largestReserve = op.index;
             }
-
-
-            t.set.put(op.index, rwop);
+        */
         }
 
         // do something with the largestReserve value
-
-
+        // if(largestReserve > 0 && largestReserve > v.array.length)
+        //         v.Reserve(largestReserve);
+    
+      
+              
     }
 
-
-    public static Transaction BuildTransaction() {
-        
-        int operationCount = 0;
-        Operation[] operations = new Operation[5];
-        int value;
-
-        while(operationCount < 5) {
-
-            // get random operation type
-            int opIndex = r.nextInt(6);
-            OperationType opType = opTypeValues[opIndex];
-
-            // get random value to write or push
-            if(opType == OperationType.popBack)
-                value = Integer.MAX_VALUE;
-                
-            else
-                value = r.nextInt(100);
-
-            // choose random index to perform operation on in vector
-            // Change the random bounds
-            int vectorIndex = r.nextInt(100);
-
-            Operation operation = new Operation(opType, value, vectorIndex);
-            operations[operationCount] = operation;
-
-            operationCount++;
-        }
-        
-        Transaction t = new Transaction(operations);
-
-        return t;
-    }
-
-
-    public static void CompleteTransaction(Transaction desc) {
-
-        ExecuteOps(desc);
-        desc.status.set(TxnStatus.committed);
-
-    }
-
-
-    private static void ExecuteOps(Transaction desc) {
+    private void CompleteTransaction(Transaction desc) {
        
         BitSet request = new BitSet();
 
@@ -204,19 +268,51 @@ class Perform implements Runnable {
         
         // Setup the resource request
         while(it.hasNext()) {
+           
+            int index = it.next();
+            
+            RWOperation rwop = desc.set.get(index);
+            if(rwop.lastWriteOp == null && rwop.readList.size() > 0) {
+                
+                // Then get value from shared memory
+                int retval = v.ReadElement(index);
 
-            // set each bit for every index we want to access
-            request.set(it.next());
+                for(int i = 0; i < rwop.readList.size(); i++) {
+                    rwop.readList.get(i).returnValue = retval;
+                }
+            }
+
+            // set each bit for every index we want to modify
+            else
+                request.set(index);
         }
 
+        if(request.cardinality() == 0)
+            return;
+
+        BitSet t = (BitSet)request.clone();
+      //  lockManager.printRequests();
+      //  System.out.println(Thread.currentThread().getName() + " request " + request + "\n");
+
+
+
+        // ACQUIRE LOCK
         Integer position = lockManager.lock(request);
 
+        System.out.println(Thread.currentThread().getName() + " request " + request + " lock acquired\n");
+        
+
         // Complete operations here
-       
+    
 
+       // System.out.println("\nThread " +Thread.currentThread().getName() + " has completed\n" + desc);
 
-        System.out.println("\nThread " +Thread.currentThread().getName() + " has completed\n" + desc);
-
+       // RELEASE LOCK
         lockManager.unlock(position);
+
+      /*  if(request.cardinality() == 64)
+            System.out.println(Thread.currentThread().getName() + " request " +t + " unlocked\n");
+        
+        */
     }
 }
