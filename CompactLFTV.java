@@ -2,7 +2,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
-import org.graalvm.compiler.nodes.calc.IntegerDivRemNode.Op;
+//import org.graalvm.compiler.nodes.calc.IntegerDivRemNode.Op;
 
 public class CompactLFTV {
     private class BucketAndIndex {
@@ -73,7 +73,7 @@ public class CompactLFTV {
         return new BucketAndIndex(bucket, indexInBucket);
     }
 
-    public boolean updateElem(int index, CompactElement newElem) {
+    public boolean UpdateElem(int index, CompactElement newElem) {
         BucketAndIndex bucketAndIndex = calculateWhichBucketAndIndex(index);
         CompactElement oldElem;
         RWOperation op;
@@ -154,4 +154,19 @@ public class CompactLFTV {
             System.out.println(c);
         }
     }
+
+    public void Reserve(int newCapacity) {
+        int currentSize = size.get();
+        int x = currentSize + FIRST_BUCKET_CAPACITY - 1;
+        int index = Integer.numberOfLeadingZeros(FIRST_BUCKET_CAPACITY) - Integer.numberOfLeadingZeros(x);
+        if (index < 1) index = 1;
+
+        int capacity = buckets.get(index - 1).length();
+        while (index < Integer.numberOfLeadingZeros(FIRST_BUCKET_CAPACITY) - Integer.numberOfLeadingZeros(newCapacity + FIRST_BUCKET_CAPACITY -1)) {
+            index++;
+            capacity *= 2;
+            buckets.compareAndSet(index, null, new AtomicReferenceArray<CompactElement>(capacity));
+        }
+    }
+
 }

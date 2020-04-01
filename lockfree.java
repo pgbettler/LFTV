@@ -293,7 +293,7 @@ class Perform implements Runnable {
                 CompactElement newElem = new CompactElement();
                 newElem.desc = desc;
                 newElem.newValue = rwop.lastWriteOp.value;
-                result = v.updateElem(index, newElem);
+                result = v.UpdateElem(index, newElem);
 
                 if(!result) {
                     System.out.println("update element failed\n");

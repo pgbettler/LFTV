@@ -30,7 +30,7 @@ public class locked {
 
 
         // Create threads
-        Thread[] threads = new Thread[3];
+        Thread[] threads = new Thread[7];
 
         for(int i = 0; i < threads.length; i++)
         {
