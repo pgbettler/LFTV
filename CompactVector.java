@@ -3,10 +3,20 @@ import java.util.Arrays;
 public class CompactVector {
 
     public CompactElement[] array;
+    public int size;
 
     public CompactVector() {
 
         this.array = new CompactElement[10];
+
+        for(int i = 0; i < this.array.length; i++) {
+            size = 0;
+            CompactElement elem = new CompactElement();
+            elem.oldValue = Integer.MAX_VALUE;
+            elem.newValue = -1;
+            elem.desc = new Transaction(TxnStatus.committed);
+            this.array[i] = elem;
+        }
     }
 
 
@@ -20,13 +30,13 @@ public class CompactVector {
     		return -1;
     	}
     	// check transaction status
-    	if(this.array[index].transaction.txnStatus.get().equals(TxnStatus.active)) 
+    	if(this.array[index].desc.status.get().equals(TxnStatus.active)) 
     	{
     		// helping must occur for this transaction, so abort?
     		// reference page 6 section 6 paragraph 2 
     		return -1;
     	}
-    	if(this.array[index].transaction.txnStatus.get().equals(TxnStatus.committed)) 
+    	if(this.array[index].desc.status.get().equals(TxnStatus.committed)) 
     	{
     		//committed is the only status to return new value
     		return this.array[index].newValue;
@@ -58,18 +68,43 @@ public class CompactVector {
     }
 
 
+    public void Populate(int val) {
+
+        if(size >= this.array.length)
+            Reserve(size*2);
+
+        CompactElement elem = new CompactElement();
+        elem.oldValue = Integer.MAX_VALUE;
+        elem.newValue = val;
+
+        elem.desc = new Transaction(TxnStatus.committed);
+        
+        RWOperation rwop = new RWOperation();
+        rwop.checkBounds = false;
+
+        Operation op = new Operation(OperationType.pushBack, val, size);
+        rwop.lastWriteOp = op;
+
+        elem.desc = new Transaction(TxnStatus.committed);
+ 
+        elem.desc.set.put(size, rwop);
+
+        this.array[size] = elem;  
+        size++;       
+    }
+
     public int PopBack() {
     	int len = array.length-1;
     	int oldVal = this.array[len].oldValue;
     	int newVal = this.array[len].newValue;
     	// check transaction status
-    	if(this.array[len].transaction.txnStatus.get().equals(TxnStatus.active)) 
+    	if(this.array[len].desc.status.get().equals(TxnStatus.active)) 
     	{
     		// helping must occur for this transaction, so abort?
     		// reference page 6 section 6 paragraph 2 
     		return -1;
     	}
-    	if(this.array[len].transaction.txnStatus.get().equals(TxnStatus.committed)) 
+    	if(this.array[len].desc.status.get().equals(TxnStatus.committed)) 
     	{
     		//remove last value in array
     		this.array =  Arrays.copyOf(this.array, this.array.length-1);
@@ -90,10 +125,21 @@ public class CompactVector {
 
     // reserve new space in the array
     public void Reserve(int index) {
-    	
+        
+        int oldLength = this.array.length;
+
     	//increase array size up to index
     	//"used in reserve calls to indicate desired capacity" so +1 or nah?
-    	this.array =  Arrays.copyOf(this.array, index);
+        this.array =  Arrays.copyOf(this.array, index);
+        
+        for(int i = oldLength; i < this.array.length; i++) {
+
+            CompactElement elem = new CompactElement();
+            elem.oldValue = Integer.MAX_VALUE;
+            elem.newValue = -1;
+            elem.desc = new Transaction(TxnStatus.committed);
+            this.array[i] = elem;
+        }
     	
     	
     }

@@ -6,14 +6,20 @@ public class Transaction {
 
     public int size;
     public Operation[] operations;
-    public AtomicReference<TxnStatus> txnStatus;
-    // This map is atomic but uses locks in its implementation so we might need to look for alternatives
-    public ConcurrentMap<Integer,RWOperation> set;
+    public AtomicReference<TxnStatus> status;
+    public ConcurrentMap<Integer,RWOperation> set = null;
 
     public Transaction (Operation[] operations) {
-        this.size = 5;
         this.operations = operations;
-        this.txnStatus = new AtomicReference<TxnStatus>(TxnStatus.active);
+        if (operations == null) size = 0;
+        else this.size = operations.length;
+        this.status = new AtomicReference<TxnStatus>(TxnStatus.active);
+        this.set = new ConcurrentHashMap<>();
+    }
+
+    // this constructor is for populating
+    public Transaction(TxnStatus status) {
+        this.status = new AtomicReference<TxnStatus>(TxnStatus.committed);
         this.set = new ConcurrentHashMap<>();
     }
 
@@ -30,7 +36,7 @@ public class Transaction {
 
        // System.out.println(str);
 
-        return "Transaction Status: " + txnStatus + "\nOperations:\n" + str;
+        return "Transaction Status: " + status + "\nOperations:\n" + str;
     }
 
 }
