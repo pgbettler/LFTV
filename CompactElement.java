@@ -10,6 +10,6 @@ public class CompactElement {
     @Override
     public String toString() {
 
-        return "oldValue: " + oldValue + "\tnewValue: " + newValue;
+        return "oldValue: " + oldValue + "\t\t\tnewValue: " + newValue;
     }
 }
