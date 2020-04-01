@@ -15,6 +15,13 @@ public class MRLOCK {
     AtomicReference<Integer> tail;
 
     public MRLOCK(Integer size) {
+
+        size = 2;
+        while(size <= 2038 ) {
+            size = size << 1;
+        }
+        
+
         buffer = new Cell[size];
         mask = size - 1;
         
@@ -34,16 +41,23 @@ public class MRLOCK {
         Cell c;
         Integer pos;
 
-        while (true) {
+        for(;;) {
             pos = tail.get();
             c = buffer[pos & mask];
             Integer seq = c.seq.get();
             Integer dif = seq - pos;
             if (dif == 0) {
-                if (tail.compareAndExchange(pos, pos+1) == pos) 
+                if (tail.compareAndExchange(pos, pos+1) == pos) {
+                  //  System.out.println("pos = " + pos + "\nseq = " + seq + "\n dif = " + dif);
                     break;
-            }
+                }
+            }    
+           // printRequests();
+
+           // System.out.println(" STUCK HERE");
+           // System.out.println("pos = " + pos + "\nseq = " + seq + "\n dif = " + dif);
         }
+
         c.bits = r;
         c.seq.set(pos + 1);
         Integer spin = head.get();
@@ -51,6 +65,8 @@ public class MRLOCK {
             // the cell is free and recycled OR the request in the cell has no conflict, then advance down the line
             if (pos - buffer[spin & mask].seq.get() > mask || !isConflict(r, buffer[spin & mask].bits)  )
                 spin++;
+
+                
         }
 
         return pos;
@@ -79,6 +95,7 @@ public class MRLOCK {
         // while the head's cell request is clear
         while(buffer[pos & mask].bits.isEmpty()) {
 
+         //   System.out.println( Thread.currentThread().getName() +" unlocking");
             Cell c = buffer[pos & mask];
 
             Integer seq = c.seq.get();
@@ -88,12 +105,25 @@ public class MRLOCK {
                 if(head.compareAndSet(pos, pos + 1)) {
                     // reset and recycle the cell
                     c.bits.set(0, 64);
-                    c.seq.set(0);
+                    c.seq.set(pos+mask +1);
                 }
             }
 
+          //  System.out.println("WE stuck");
             pos = head.get();
         }
 
+       
+        //System.out.println("pos = " + pos + "\nseq = " + c.seq.get() + "\n dif = " + dif);
+        
+
+    }
+
+    public void printRequests() {
+
+        for(int temp = head.get(); temp != tail.get(); temp++)
+            System.out.println(buffer[temp].bits);
+
+        System.out.println();
     }
 }
